@@ -29,7 +29,7 @@ export function useUploadTest() {
     (durationMs: number = UPLOAD_TARGET_DURATION_MS, onProgress?: ProgressHandler): Promise<ThroughputResult> => {
       return new Promise((resolve, reject) => {
         const buffer = getUploadBuffer();
-        const blob = new Blob([buffer]);
+        const blob = new Blob([buffer as BlobPart]);
 
         const xhr = new XMLHttpRequest();
         xhrRef.current = xhr;
