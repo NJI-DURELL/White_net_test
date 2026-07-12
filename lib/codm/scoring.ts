@@ -30,10 +30,18 @@ function clamp(value: number, min: number, max: number): number {
 async function probeOnce(url: string, timeoutMs: number): Promise<number | null> {
   const start = performance.now();
   try {
+    // HEAD, not GET: an S3 bucket root answers GET with a 307 redirect to
+    // AWS's marketing site, and fetch (even in no-cors mode) follows
+    // redirects transparently — that was silently adding a second
+    // cross-origin round trip (and a full page load) on top of every single
+    // sample, inflating every region's reading by 1-1.5s+. S3 answers HEAD
+    // with a direct 405 at the regional edge itself, no redirect, which is
+    // what actually measures RTT to that hub.
     // no-cors keeps this a "simple" cross-origin request (no preflight) and
     // avoids CORS rejection — the response is opaque, but the promise still
     // resolves once the round trip completes, which is all timing needs.
     await fetch(url, {
+      method: "HEAD",
       mode: "no-cors",
       cache: "no-store",
       signal: AbortSignal.timeout(timeoutMs),
