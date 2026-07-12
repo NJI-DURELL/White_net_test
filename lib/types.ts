@@ -1,5 +1,7 @@
 export type TestPhase = "idle" | "ping" | "download" | "upload" | "done" | "error";
 
+export type ActivePanel = "speed" | "codm";
+
 export interface ThroughputSample {
   t: number; // ms since test start
   bytes: number; // bytes transferred at this sample point (cumulative)

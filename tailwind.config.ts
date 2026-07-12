@@ -27,10 +27,15 @@ const config: Config = {
           "0%, 100%": { boxShadow: "0 0 0 0 rgba(56, 189, 248, 0.35)" },
           "50%": { boxShadow: "0 0 0 22px rgba(56, 189, 248, 0)" },
         },
+        "pulse-glow-codm": {
+          "0%, 100%": { boxShadow: "0 0 0 0 rgba(244, 63, 94, 0.4)" },
+          "50%": { boxShadow: "0 0 0 22px rgba(244, 63, 94, 0)" },
+        },
       },
       animation: {
         drift: "drift 26s ease-in-out infinite",
         "pulse-glow": "pulse-glow 2.4s ease-out infinite",
+        "pulse-glow-codm": "pulse-glow-codm 2.4s ease-out infinite",
       },
     },
   },
