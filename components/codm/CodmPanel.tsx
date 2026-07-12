@@ -11,10 +11,11 @@ import { CodmPingGauge } from "./CodmPingGauge";
 import { CodmRegionResults } from "./CodmRegionResults";
 import { CodmRecommendations } from "./CodmRecommendations";
 import { CodmIspHistoryTable } from "./CodmIspHistoryTable";
+import { CodmCalibrationPrompt } from "./CodmCalibrationPrompt";
 import { TooltipWrap } from "@/components/ui/Tooltip";
 
 export function CodmPanel() {
-  const { phase, regions, ipInfo, result, error, start } = useCodmPingTest();
+  const { phase, regions, ipInfo, result, error, start, calibrate } = useCodmPingTest();
   const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
 
   const scanning = phase === "scanning";
@@ -28,6 +29,11 @@ export function CodmPanel() {
   const handleStart = () => {
     start();
     // history table re-reads localStorage once the scan settles
+    setTimeout(() => setHistoryRefreshKey((k) => k + 1), 50);
+  };
+
+  const handleCalibrate = (actualMs: number) => {
+    calibrate(actualMs);
     setTimeout(() => setHistoryRefreshKey((k) => k + 1), 50);
   };
 
@@ -53,8 +59,9 @@ export function CodmPanel() {
             </span>
           </h1>
           <p className="max-w-md text-sm text-white/50">
-            Measures your connection under worst-case conditions across CODM&apos;s nearest server hubs — so real
-            matches feel the same or better than what&apos;s reported.
+            Scans your route to CODM&apos;s nearest server hubs under worst-case sampling. A browser can&apos;t reach
+            the actual game servers directly, so calibrate once against CODM&apos;s own ping HUD for a personalized,
+            accurate reading.
           </p>
         </div>
 
@@ -85,7 +92,11 @@ export function CodmPanel() {
           <span className="text-center text-[11px] font-semibold uppercase tracking-widest text-white/30">
             Server Hub Scan
           </span>
-          <CodmRegionResults regions={regions} scanning={scanning} bestRegionId={result?.best?.regionId} />
+          <CodmRegionResults
+            regions={done ? result.regions : regions}
+            scanning={scanning}
+            bestRegionId={result?.best?.regionId}
+          />
         </div>
       )}
 
@@ -98,8 +109,9 @@ export function CodmPanel() {
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             className="flex w-full flex-col items-center gap-6"
           >
-            <CodmPingGauge pingMs={result.best.codmPingMs ?? 200} tier={result.tier} />
+            <CodmPingGauge pingMs={result.best.codmPingMs ?? 200} tier={result.tier} calibrated={result.calibrated} />
             <div className="flex w-full flex-col gap-3">
+              <CodmCalibrationPrompt calibrated={result.calibrated} onCalibrate={handleCalibrate} />
               <CodmRecommendations recommendations={recommendations} />
               <CodmIspHistoryTable refreshKey={historyRefreshKey} />
             </div>

@@ -1,7 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import { CODM_REGIONS } from "@/lib/codm/regions";
-import { getCodmTier, pickBestRegion, probeAllRegions } from "@/lib/codm/scoring";
+import { applyCalibration, getCodmTier, pickBestRegion, probeAllRegions } from "@/lib/codm/scoring";
 import { appendIspHistory } from "@/lib/codm/ispHistory";
+import { getCalibration, saveCalibration } from "@/lib/codm/calibration";
 import type { CodmScanResult, RegionProbeResult } from "@/lib/codm/types";
 import type { IpInfo } from "@/lib/types";
 
@@ -15,6 +16,27 @@ export function useCodmPingTest() {
   const [error, setError] = useState<string | null>(null);
 
   const runIdRef = useRef(0);
+  // Uncalibrated probe output kept separately so calibrate() always scales
+  // from the true raw measurement, not an already-scaled display value.
+  const rawRegionsRef = useRef<RegionProbeResult[]>([]);
+  const ispNameRef = useRef<string | null>(null);
+
+  const buildResult = useCallback((rawRegions: RegionProbeResult[], ispName: string | null): CodmScanResult => {
+    const calibration = getCalibration(ispName);
+    const ratio = calibration?.ratio ?? 1;
+    const displayRegions = applyCalibration(rawRegions, ratio);
+    const best = pickBestRegion(displayRegions);
+    const tier = getCodmTier(best?.codmPingMs ?? 999);
+
+    return {
+      timestamp: Date.now(),
+      ispName,
+      regions: displayRegions,
+      best,
+      tier,
+      calibrated: calibration != null,
+    };
+  }, []);
 
   const start = useCallback(async () => {
     const runId = ++runIdRef.current;
@@ -31,6 +53,7 @@ export function useCodmPingTest() {
     } catch {
       if (runIdRef.current === runId) setIpInfo(null);
     }
+    ispNameRef.current = ispSnapshot?.isp ?? null;
 
     try {
       const settled = await probeAllRegions(CODM_REGIONS, (single) => {
@@ -43,27 +66,19 @@ export function useCodmPingTest() {
       });
       if (runIdRef.current !== runId) return;
 
-      const best = pickBestRegion(settled);
-      const tier = getCodmTier(best?.codmPingMs ?? 999);
-
-      const scanResult: CodmScanResult = {
-        timestamp: Date.now(),
-        ispName: ispSnapshot?.isp ?? null,
-        regions: settled,
-        best,
-        tier,
-      };
+      rawRegionsRef.current = settled;
+      const scanResult = buildResult(settled, ispNameRef.current);
 
       setResult(scanResult);
       setPhase("done");
 
-      if (best?.codmPingMs != null) {
+      if (scanResult.best?.codmPingMs != null) {
         appendIspHistory({
           timestamp: scanResult.timestamp,
-          ispName: ispSnapshot?.isp ?? "Unknown ISP",
-          bestCodmPingMs: best.codmPingMs,
-          bestRegionLabel: best.label,
-          tierLabel: tier.label,
+          ispName: ispNameRef.current ?? "Unknown ISP",
+          bestCodmPingMs: scanResult.best.codmPingMs,
+          bestRegionLabel: scanResult.best.label,
+          tierLabel: scanResult.tier.label,
         });
       }
     } catch (err) {
@@ -71,7 +86,36 @@ export function useCodmPingTest() {
       setError(err instanceof Error ? err.message : "CODM scan failed");
       setPhase("error");
     }
-  }, []);
+  }, [buildResult]);
+
+  /**
+   * Calibrates using the player's real in-game CODM ping (read straight off
+   * CODM's own HUD). We can't reach the actual game server from a browser,
+   * so this is the only way to close the gap between our generic-cloud
+   * proxy reading and reality for their specific ISP/route.
+   */
+  const calibrate = useCallback(
+    (actualMs: number) => {
+      const rawBest = pickBestRegion(rawRegionsRef.current);
+      const ispName = ispNameRef.current;
+      if (!rawBest?.codmPingMs || !ispName) return;
+
+      saveCalibration(ispName, rawBest.codmPingMs, actualMs);
+      const recalibrated = buildResult(rawRegionsRef.current, ispName);
+      setResult(recalibrated);
+
+      if (recalibrated.best?.codmPingMs != null) {
+        appendIspHistory({
+          timestamp: recalibrated.timestamp,
+          ispName,
+          bestCodmPingMs: recalibrated.best.codmPingMs,
+          bestRegionLabel: recalibrated.best.label,
+          tierLabel: recalibrated.tier.label,
+        });
+      }
+    },
+    [buildResult]
+  );
 
   const reset = useCallback(() => {
     runIdRef.current++;
@@ -81,5 +125,5 @@ export function useCodmPingTest() {
     setError(null);
   }, []);
 
-  return { phase, regions, ipInfo, result, error, start, reset };
+  return { phase, regions, ipInfo, result, error, start, reset, calibrate };
 }

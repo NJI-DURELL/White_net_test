@@ -128,6 +128,22 @@ export function pickBestRegion(regions: RegionProbeResult[]): RegionProbeResult 
   return reachable.reduce((best, r) => (r.codmPingMs! < best.codmPingMs! ? r : best));
 }
 
+/**
+ * Scales every region's estimate by a per-ISP calibration ratio derived from
+ * a real CODM in-game ping the player supplied. Assumes the gap between our
+ * generic-cloud-region proxy and the real game server is roughly
+ * proportional across regions on the same ISP — not exact, but far closer
+ * than the uncalibrated raw estimate, which has no way to account for
+ * CODM's servers sitting on completely different (better-peered) transit
+ * than a generic cloud storage region.
+ */
+export function applyCalibration(regions: RegionProbeResult[], ratio: number): RegionProbeResult[] {
+  if (ratio === 1) return regions;
+  return regions.map((r) =>
+    r.codmPingMs == null ? r : { ...r, codmPingMs: clamp(Math.round(r.codmPingMs * ratio), 1, 999) }
+  );
+}
+
 export const CODM_TIERS: (CodmTier & { min: number })[] = [
   { min: 0, label: "Excellent", color: "#34d399", advice: "Tournament-ready. Push ranked, play aggressively." },
   { min: 50, label: "Good", color: "#a3e635", advice: "Solid for ranked and MP. Minor timing windows may still slip." },

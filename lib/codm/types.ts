@@ -27,4 +27,6 @@ export interface CodmScanResult {
   regions: RegionProbeResult[];
   best: RegionProbeResult | null;
   tier: CodmTier;
+  /** True once the player has calibrated this ISP against a real in-game CODM ping. */
+  calibrated: boolean;
 }

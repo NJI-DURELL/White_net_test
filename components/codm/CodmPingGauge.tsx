@@ -1,18 +1,37 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { BadgeCheck, FlaskConical } from "lucide-react";
 import { CODM_TIERS } from "@/lib/codm/scoring";
 import type { CodmTier } from "@/lib/codm/types";
 
 /** CODM's own in-game ping HUD reads 0 (best) to 200ms (worst) — mirrored here. */
 const CODM_SCALE_MAX = 200;
 
-export function CodmPingGauge({ pingMs, tier }: { pingMs: number; tier: CodmTier }) {
+export function CodmPingGauge({
+  pingMs,
+  tier,
+  calibrated,
+}: {
+  pingMs: number;
+  tier: CodmTier;
+  calibrated: boolean;
+}) {
   const clamped = Math.min(pingMs, CODM_SCALE_MAX);
   const fillPct = (clamped / CODM_SCALE_MAX) * 100;
 
   return (
     <div className="flex flex-col items-center gap-3">
+      <span
+        className={
+          calibrated
+            ? "flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-emerald-400/80"
+            : "flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-white/35"
+        }
+      >
+        {calibrated ? <BadgeCheck size={11} /> : <FlaskConical size={11} />}
+        {calibrated ? "Calibrated to your CODM" : "Uncalibrated estimate"}
+      </span>
       <div className="flex items-baseline gap-2">
         <span className="tabular text-6xl font-black tracking-tight text-white sm:text-7xl" style={{ color: tier.color }}>
           {pingMs >= CODM_SCALE_MAX ? "200+" : Math.round(pingMs)}
